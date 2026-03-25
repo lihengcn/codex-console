@@ -98,6 +98,7 @@ const elements = {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
+    applyDefaultFormState();
     initEventListeners();
     loadAvailableServices();
     loadRecentAccounts();
@@ -106,6 +107,21 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreActiveTask();
     initAutoUploadOptions();
 });
+
+function applyDefaultFormState() {
+    if (elements.regMode) {
+        elements.regMode.value = 'batch';
+        handleModeChange({ target: elements.regMode });
+    }
+
+    if (elements.batchCount) {
+        elements.batchCount.value = '1000';
+    }
+
+    if (elements.autoUploadCpa) {
+        elements.autoUploadCpa.checked = true;
+    }
+}
 
 // 初始化注册后自动操作选项（CPA / Sub2API / TM）
 async function initAutoUploadOptions() {
@@ -154,6 +170,10 @@ async function loadServiceSelect(apiPath, container, checkbox, selectGroup) {
             const dd = document.getElementById(container.id + '-dd');
             if (dd && !dd.contains(e.target)) dd.classList.remove('open');
         }, true);
+    }
+
+    if (selectGroup) {
+        selectGroup.style.display = checkbox.checked ? 'block' : 'none';
     }
 
     // 联动显示/隐藏服务选择区
