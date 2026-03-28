@@ -248,6 +248,10 @@ def _run_sync_registration_task(task_uuid: str, email_service_type: str, proxy: 
             # 更新 TaskManager 状态
             task_manager.update_status(task_uuid, "running")
 
+            # 批量场景会预先把 email_service_id 绑定到任务记录里，这里优先回读，
+            # 避免执行阶段丢失具体的邮箱账户选择。
+            resolved_email_service_id = email_service_id or task.email_service_id
+
             # 确定使用的代理
             # 如果前端传入了代理参数，使用传入的
             # 否则从代理列表或系统设置中获取
@@ -267,10 +271,10 @@ def _run_sync_registration_task(task_uuid: str, email_service_type: str, proxy: 
             settings = get_settings()
 
             # 优先使用数据库中配置的邮箱服务
-            if email_service_id:
+            if resolved_email_service_id:
                 from ...database.models import EmailService as EmailServiceModel
                 db_service = db.query(EmailServiceModel).filter(
-                    EmailServiceModel.id == email_service_id,
+                    EmailServiceModel.id == resolved_email_service_id,
                     EmailServiceModel.enabled == True
                 ).first()
 
@@ -281,7 +285,7 @@ def _run_sync_registration_task(task_uuid: str, email_service_type: str, proxy: 
                     crud.update_registration_task(db, task_uuid, email_service_id=db_service.id)
                     logger.info(f"使用数据库邮箱服务: {db_service.name} (ID: {db_service.id}, 类型: {service_type.value})")
                 else:
-                    raise ValueError(f"邮箱服务不存在或已禁用: {email_service_id}")
+                    raise ValueError(f"邮箱服务不存在或已禁用: {resolved_email_service_id}")
             else:
                 # 使用默认配置或传入的配置
                 if service_type == EmailServiceType.TEMPMAIL:
