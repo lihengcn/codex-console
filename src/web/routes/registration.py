@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Tuple
 
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 
 from ...database import crud
 from ...database.session import get_db
@@ -219,6 +220,19 @@ def _normalize_email_service_config(
         normalized['proxy_url'] = proxy_url
 
     return normalized
+
+
+def _find_existing_outlook_account(db, email: Optional[str]):
+    """按规范化邮箱查找已保存账号，避免大小写或首尾空格导致误判。"""
+    from ...database.models import Account
+
+    normalized_email = str(email or "").strip().lower()
+    if not normalized_email:
+        return None
+
+    return db.query(Account).filter(
+        func.lower(func.trim(Account.email)) == normalized_email
+    ).first()
 
 
 def _run_sync_registration_task(task_uuid: str, email_service_type: str, proxy: Optional[str], email_service_config: Optional[dict], email_service_id: Optional[int] = None, log_prefix: str = "", batch_id: str = "", auto_upload_cpa: bool = False, cpa_service_ids: List[int] = None, auto_upload_sub2api: bool = False, sub2api_service_ids: List[int] = None, auto_upload_tm: bool = False, tm_service_ids: List[int] = None):
@@ -1297,7 +1311,6 @@ async def get_outlook_accounts_for_registration():
     返回所有已启用的 Outlook 服务，并检查每个邮箱是否已在 accounts 表中注册
     """
     from ...database.models import EmailService as EmailServiceModel
-    from ...database.models import Account
 
     with get_db() as db:
         # 获取所有启用的 Outlook 服务
@@ -1315,9 +1328,7 @@ async def get_outlook_accounts_for_registration():
             email = config.get("email") or service.name
 
             # 检查是否已注册（查询 accounts 表）
-            existing_account = db.query(Account).filter(
-                Account.email == email
-            ).first()
+            existing_account = _find_existing_outlook_account(db, email)
 
             is_registered = existing_account is not None
             if is_registered:
@@ -1418,7 +1429,6 @@ async def start_outlook_batch_registration(
     - interval_max: 最大间隔秒数
     """
     from ...database.models import EmailService as EmailServiceModel
-    from ...database.models import Account
 
     # 验证参数
     if not request.service_ids:
@@ -1452,9 +1462,7 @@ async def start_outlook_batch_registration(
                 email = config.get("email") or service.name
 
                 # 检查是否已注册
-                existing_account = db.query(Account).filter(
-                    Account.email == email
-                ).first()
+                existing_account = _find_existing_outlook_account(db, email)
 
                 if existing_account:
                     skipped_count += 1

@@ -611,6 +611,7 @@ function connectWebSocket(taskUuid) {
                             toast.success('注册成功！');
                             // 刷新账号列表
                             loadRecentAccounts();
+                            refreshOutlookRegistrationViews();
                         } else if (data.status === 'failed') {
                             addLog('error', '[错误] 注册失败');
                             toast.error('注册失败');
@@ -830,6 +831,7 @@ function startLogPolling(taskUuid) {
                         toast.success('注册成功！');
                         // 刷新账号列表
                         loadRecentAccounts();
+                        refreshOutlookRegistrationViews();
                     } else if (data.status === 'failed') {
                         addLog('error', '[错误] 注册失败');
                         toast.error('注册失败');
@@ -1211,6 +1213,17 @@ async function loadOutlookAccounts() {
     }
 }
 
+async function refreshOutlookRegistrationViews() {
+    try {
+        await loadAvailableServices();
+        if (isOutlookBatchMode || elements.outlookBatchSection?.style.display !== 'none') {
+            await loadOutlookAccounts();
+        }
+    } catch (error) {
+        console.error('刷新 Outlook 注册视图失败:', error);
+    }
+}
+
 // 渲染 Outlook 账户列表
 function renderOutlookAccountsList() {
     if (outlookAccounts.length === 0) {
@@ -1393,6 +1406,7 @@ function connectBatchWebSocket(batchId) {
                             if (data.success > 0) {
                                 toast.success(`Outlook 批量注册完成，成功 ${data.success} 个`);
                                 loadRecentAccounts();
+                                refreshOutlookRegistrationViews();
                             } else {
                                 toast.warning('Outlook 批量注册完成，但没有成功注册任何账号');
                             }
@@ -1508,6 +1522,7 @@ function startOutlookBatchPolling(batchId) {
                     if (data.success > 0) {
                         toast.success(`Outlook 批量注册完成，成功 ${data.success} 个`);
                         loadRecentAccounts();
+                        refreshOutlookRegistrationViews();
                     } else {
                         toast.warning('Outlook 批量注册完成，但没有成功注册任何账号');
                     }
